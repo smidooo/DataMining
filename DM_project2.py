@@ -22,10 +22,6 @@ start = time.time()
 
 class rbf_simple():
 
-    def __init__(self):
-        self.weights = np.array(1)
-        self.offset = np.array(1)
-
     def fit(self, X):
         random_state = np.random.RandomState(C_RANDOM_STATE)
         self.weights = (np.sqrt(2 * C_GAMMA) *
