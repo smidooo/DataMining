@@ -10,9 +10,8 @@ from sklearn.linear_model import SGDClassifier
 C_ALPHA = 1e-4
 C_BETA1 = 0.34
 C_BETA2 = 0.999999999
-C_EPSILON = 1e-8
-
 C_COMPONENTS = 10000
+C_EPSILON = 1e-8
 C_GAMMA = 20
 C_RANDOM_STATE = 1
 
@@ -20,32 +19,20 @@ C_RANDOM_STATE = 1
 start = time.time()
 
 
-class rbf_simple():
-
-    def fit(self, X):
-        random_state = np.random.RandomState(C_RANDOM_STATE)
-        self.weights = (np.sqrt(2 * C_GAMMA) *
-                        random_state.normal(size=(X.shape[1], C_COMPONENTS)))
-        self.offset = random_state.uniform(0, 2 * np.pi, size=C_COMPONENTS)
-        return self
-
-    def transform(self, X):
-        projection = np.dot(X, self.weights)
-        projection += self.offset
-        np.cos(projection, projection)
-        projection *= np.sqrt(2.) / np.sqrt(C_COMPONENTS)
-
-        return projection
-
-
 def transform(X):
-    # Make sure this function works for both 1D and 2D NumPy arrays.
-    print('X', np.shape(X))
-    rbf = rbf_simple().fit(X)
-    X = rbf.transform(X)
-    print('X', np.shape(X))
+    # this is a simplified rbf sampler
+    # initialization
+    random_state = np.random.RandomState(C_RANDOM_STATE)
+    weights = (np.sqrt(2 * C_GAMMA) *
+               random_state.normal(size=(X.shape[1], C_COMPONENTS)))
+    offset = random_state.uniform(0, 2 * np.pi, size=C_COMPONENTS)
+        
+    # projection
+    projection = np.dot(X, weights) + offset
+    np.cos(projection, projection)
+    projection *= np.sqrt(2.) / np.sqrt(C_COMPONENTS)
 
-    return X
+    return projection
 
 
 def project_L2(w, a):
