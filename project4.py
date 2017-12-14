@@ -28,8 +28,8 @@ nof_articles = None
 article_features = None
 last_recommendation = None
 last_user_features = None
-M = []
-b = []
+M = {}
+b = {}
 
 
 def set_articles(articles):
@@ -41,8 +41,8 @@ def set_articles(articles):
     article_features = articles
     nof_articles = len(article_features)
     for a in articles:
-        M.append({a: np.identity(nof_user_features)})
-        b.append({a: np.zeros(nof_user_features)})
+        M[a] = np.identity(nof_user_features)
+        b[a] = np.zeros(nof_user_features)
 
 
 def update(reward):
@@ -54,8 +54,10 @@ def update(reward):
     #   1: articles match, the user has clicked
 
     global M, b, last_recommendation, last_user_features
-    M[last_recommendation] += np.multiply(last_user_features, last_user_features.T)
-    b[last_recommendation] += np.multiply(last_user_features, reward)
+    M_diff = np.multiply(last_user_features, last_user_features.T)
+    M[last_recommendation] = np.add(M[last_recommendation], M_diff)
+    b_diff = np.multiply(last_user_features, reward)
+    b[last_recommendation] = np.add(b[last_recommendation], b_diff)
 
 
 def recommend(time, user_features, choices):
@@ -66,12 +68,17 @@ def recommend(time, user_features, choices):
     global M, last_recommendation, last_user_features
     C_ALPHA = 1
     last_user_features = np.matrix(user_features)
-    UCB = []
+    max_ucb = np.nanmin(0.)
     for c in choices:
-        w = np.linalg.inv(M[c]) * b[c]
-        proj = last_user_features.T * np.linalg.inv(M[c]) * last_user_features
-        UCB.append({c: w.T * last_user_features + C_ALPHA * np.sqrt(proj)})
+        w = np.multiply(np.linalg.inv(M[c]), b[c])
+        proj = np.multiply(last_user_features.T, np.linalg.inv(M[c]))
+        proj = np.multiply(proj, last_user_features)
+        ucb = np.multiply(w.T, last_user_features) + np.multiply(C_ALPHA, np.sqrt(proj))
+        ucb_norm = np.linalg.norm(ucb)
+        if (max_ucb < ucb_norm):
+            max_ucb = ucb_norm
+            last_recommendation = c
 
-    last_recommendation = np.max(UCB)
+    print('recommendation: ' + str(last_recommendation))
 
     return np.random.choice(last_recommendation)
