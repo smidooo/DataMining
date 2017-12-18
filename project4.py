@@ -23,6 +23,7 @@ structure of articles (80):
 
 """
 
+iteration_cnt = 0
 nof_user_features = 6
 nof_articles = None
 article_features = None
@@ -53,11 +54,12 @@ def update(reward):
     #   0: article match, but user didn't click
     #   1: articles match, the user has clicked
 
-    global M, b, last_recommendation, last_user_features
+    global iteration_cnt, M, b, last_recommendation, last_user_features
     M_diff = np.multiply(last_user_features, last_user_features.T)
     M[last_recommendation] = np.add(M[last_recommendation], M_diff)
     b_diff = np.multiply(last_user_features, reward)
     b[last_recommendation] = np.add(b[last_recommendation], b_diff)
+    iteration_cnt += 1
 
 
 def recommend(time, user_features, choices):
@@ -65,20 +67,36 @@ def recommend(time, user_features, choices):
     # select one article from choices, return it (i.e. recommend for the user)
     # update method will be called with the result (i.e. click / no click)
 
-    global M, last_recommendation, last_user_features
-    C_ALPHA = 1
+    global iteration_cnt, M, last_recommendation, last_user_features
+    C_ALPHA = 7
     last_user_features = np.matrix(user_features)
-    max_ucb = np.nanmin(0.)
+    max_ucb = None
     for c in choices:
-        w = np.multiply(np.linalg.inv(M[c]), b[c])
+        M_inv = np.linalg.inv(M[c])
+        w = np.multiply(M_inv, b[c])
         proj = np.multiply(last_user_features.T, np.linalg.inv(M[c]))
         proj = np.multiply(proj, last_user_features)
-        ucb = np.multiply(w.T, last_user_features) + np.multiply(C_ALPHA, np.sqrt(proj))
+        ucb_w = np.multiply(w.T, last_user_features)
+        ucb_alpha = np.multiply(C_ALPHA, np.sqrt(proj))
+        ucb = np.add(ucb_w, ucb_alpha)
         ucb_norm = np.linalg.norm(ucb)
-        if (max_ucb < ucb_norm):
+        if (1 >= iteration_cnt):
+            pass
+            #print('testing ' + str(c))
+            #print('  ## M_inv:     \n' + str(M_inv))
+            #print('  ## w:         \n' + str(w))
+            #print('  ## proj:      \n' + str(proj))
+            #print('  ## ucb_w:     \n' + str(ucb_w))
+            #print('  ## ucb_alpha: \n' + str(ucb_alpha))
+            #print('  ## ucb:       \n' + str(ucb))
+            #print('  ## ucb_norm:  ' + str(ucb_norm))
+        if (np.isnan(ucb_norm)):
+            print('ucb norm is NaN in iteration ' + str(iteration_cnt) + ' for choice ' + str(c))
+        if (not np.isnan(ucb_norm) and ((max_ucb is None) or (max_ucb < ucb_norm))):
             max_ucb = ucb_norm
             last_recommendation = c
 
-    print('recommendation: ' + str(last_recommendation))
+    if (10 >= iteration_cnt):
+        print('recommendation: ' + str(last_recommendation))
 
     return np.random.choice(last_recommendation)
