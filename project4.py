@@ -25,7 +25,7 @@ last_user_features = None
 M = {}
 b = {}
 
-C_ALPHA = 1e4 #6 passt
+C_ALPHA = 12 
 
 def set_articles(articles):
     # method is called once at the beginning
@@ -36,8 +36,8 @@ def set_articles(articles):
     article_features = articles
     nof_articles = len(article_features)
     for a in articles:
-        M[a] = np.identity(nof_user_features)
-        b[a] = np.zeros(nof_user_features)
+        M[a] = np.identity(nof_user_features).reshape(6,6)
+        b[a] = np.zeros(nof_user_features).reshape(6,1)
 
 
 def update(reward):
@@ -49,16 +49,16 @@ def update(reward):
     #   1: articles match, the user has clicked
     #print('update')
     global M, b, last_recommendation, last_user_features
-    
-    M_diff = np.dot(last_user_features, last_user_features.T)
-    #print(np.shape(M_diff), M_diff)
-    M[last_recommendation] = np.add(M[last_recommendation], M_diff)
-    
-    b_diff = np.dot(last_user_features, reward)
-    b[last_recommendation] = np.add(b[last_recommendation], b_diff)
 
-    #print(np.shape(b_diff), b_diff)
-    #print(np.shape(reward), reward)
+    M_diff = np.multiply(last_user_features.reshape(6,1), last_user_features.reshape(6,1).T)
+    M[last_recommendation] = M[last_recommendation] + (M_diff)
+    b[last_recommendation] = b[last_recommendation] + (last_user_features*reward)
+    
+    #print('Mdiff', np.shape(M_diff), M_diff)
+
+    #print('M', last_recommendation, np.shape(M[last_recommendation]), M[last_recommendation])
+    #print('b',last_recommendation,np.shape(b[last_recommendation]), b[last_recommendation])
+    #print(np.shape(last_user_features), last_user_features)
 
 
 def recommend(time, user_features, choices):
@@ -68,8 +68,8 @@ def recommend(time, user_features, choices):
 
     #print ('recommend')
     global M, last_recommendation, last_user_features
-    last_user_features = np.array(user_features)
-    max_ucb = 0#np.nanmin(0.)
+    last_user_features = np.array(user_features).reshape(6,1)
+    max_ucb = 0
 
     #print('M',np.shape(M))
     #print('b',np.shape(b))
@@ -78,14 +78,14 @@ def recommend(time, user_features, choices):
 
     #for all x actoins in action set A_t (choices)
     for x in choices:
-        w = np.dot(np.linalg.inv(M[x]), b[x])
-        
-        proj = np.dot(last_user_features.T, np.linalg.inv(M[x]))
-        #print('pro', np.shape(proj))
-        proj = np.dot(proj, last_user_features)
+        w = np.dot(np.linalg.inv(M[x]), b[x]).reshape(6,1)
+        #print('w', np.shape(w))
+        proj1 = np.dot(last_user_features.T, np.linalg.inv(M[x])).reshape(1,6)
+        #print('pro1', np.shape(proj1))
+        proj = np.dot(proj1, last_user_features)
         #print('proj', np.shape(proj))
 
-        ucb = np.dot(w.T, last_user_features) + np.dot(C_ALPHA, np.sqrt(proj))
+        ucb = np.dot(w.T, last_user_features) + (C_ALPHA * np.sqrt(proj))
 
         #print(np.shape(ucb))
         #ucb_norm = np.linalg.norm(ucb)
@@ -93,6 +93,7 @@ def recommend(time, user_features, choices):
         if (max_ucb < ucb):
             max_ucb = ucb
             last_recommendation = x
+
             #print('yes')
 
     print('recom: ' + str(last_recommendation))
