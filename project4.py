@@ -3,27 +3,20 @@ import numpy as np
 """
 structure of logs (100'000):
 ----------------------------
-
  - timestamp
  - user features (6d vector of doubles)
  - available articles (list of IDs)
-
 1241160900
 1.000000 0.000012 0.000000 0.000006 0.000023 0.999958
 109513 0 109498 109509 109508 109473 109503 109502 109501 109492 109495 109494 109484 109506 109510 109514 109505 109515 109512 109513 109511 109453
-
 structure of articles (80):
 ---------------------------
-
  - article ID
  - list of features (6)
-
 109568
 0.336694544019 0.403501479737 0.404825199717 0.129586091883 0.0890207306141 0.540844109036
-
 """
 
-iteration_cnt = 0
 nof_user_features = 6
 nof_articles = None
 article_features = None
@@ -32,6 +25,7 @@ last_user_features = None
 M = {}
 b = {}
 
+C_ALPHA = 1e4 #6 passt
 
 def set_articles(articles):
     # method is called once at the beginning
@@ -53,13 +47,18 @@ def update(reward):
     #  -1: recommended and displayed article didn't match
     #   0: article match, but user didn't click
     #   1: articles match, the user has clicked
-
-    global iteration_cnt, M, b, last_recommendation, last_user_features
-    M_diff = np.multiply(last_user_features, last_user_features.T)
+    #print('update')
+    global M, b, last_recommendation, last_user_features
+    
+    M_diff = np.dot(last_user_features, last_user_features.T)
+    #print(np.shape(M_diff), M_diff)
     M[last_recommendation] = np.add(M[last_recommendation], M_diff)
-    b_diff = np.multiply(last_user_features, reward)
+    
+    b_diff = np.dot(last_user_features, reward)
     b[last_recommendation] = np.add(b[last_recommendation], b_diff)
-    iteration_cnt += 1
+
+    #print(np.shape(b_diff), b_diff)
+    #print(np.shape(reward), reward)
 
 
 def recommend(time, user_features, choices):
@@ -67,36 +66,35 @@ def recommend(time, user_features, choices):
     # select one article from choices, return it (i.e. recommend for the user)
     # update method will be called with the result (i.e. click / no click)
 
-    global iteration_cnt, M, last_recommendation, last_user_features
-    C_ALPHA = 7
-    last_user_features = np.matrix(user_features)
-    max_ucb = None
-    for c in choices:
-        M_inv = np.linalg.inv(M[c])
-        w = np.multiply(M_inv, b[c])
-        proj = np.multiply(last_user_features.T, np.linalg.inv(M[c]))
-        proj = np.multiply(proj, last_user_features)
-        ucb_w = np.multiply(w.T, last_user_features)
-        ucb_alpha = np.multiply(C_ALPHA, np.sqrt(proj))
-        ucb = np.add(ucb_w, ucb_alpha)
-        ucb_norm = np.linalg.norm(ucb)
-        if (1 >= iteration_cnt):
-            pass
-            #print('testing ' + str(c))
-            #print('  ## M_inv:     \n' + str(M_inv))
-            #print('  ## w:         \n' + str(w))
-            #print('  ## proj:      \n' + str(proj))
-            #print('  ## ucb_w:     \n' + str(ucb_w))
-            #print('  ## ucb_alpha: \n' + str(ucb_alpha))
-            #print('  ## ucb:       \n' + str(ucb))
-            #print('  ## ucb_norm:  ' + str(ucb_norm))
-        if (np.isnan(ucb_norm)):
-            print('ucb norm is NaN in iteration ' + str(iteration_cnt) + ' for choice ' + str(c))
-        if (not np.isnan(ucb_norm) and ((max_ucb is None) or (max_ucb < ucb_norm))):
-            max_ucb = ucb_norm
-            last_recommendation = c
+    #print ('recommend')
+    global M, last_recommendation, last_user_features
+    last_user_features = np.array(user_features)
+    max_ucb = 0#np.nanmin(0.)
 
-    if (10 >= iteration_cnt):
-        print('recommendation: ' + str(last_recommendation))
+    #print('M',np.shape(M))
+    #print('b',np.shape(b))
+    #print('last_user_features', np.shape(last_user_features))
 
-    return np.random.choice(last_recommendation)
+
+    #for all x actoins in action set A_t (choices)
+    for x in choices:
+        w = np.dot(np.linalg.inv(M[x]), b[x])
+        
+        proj = np.dot(last_user_features.T, np.linalg.inv(M[x]))
+        #print('pro', np.shape(proj))
+        proj = np.dot(proj, last_user_features)
+        #print('proj', np.shape(proj))
+
+        ucb = np.dot(w.T, last_user_features) + np.dot(C_ALPHA, np.sqrt(proj))
+
+        #print(np.shape(ucb))
+        #ucb_norm = np.linalg.norm(ucb)
+        
+        if (max_ucb < ucb):
+            max_ucb = ucb
+            last_recommendation = x
+            #print('yes')
+
+    print('recom: ' + str(last_recommendation))
+
+    return last_recommendation
