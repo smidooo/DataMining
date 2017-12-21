@@ -24,20 +24,24 @@ last_recommendation = None
 last_user_features = None
 M = {}
 b = {}
+w = {}
+Q = {}
 
-C_ALPHA = 12 
+C_ALPHA = 100 #100 works
 
 def set_articles(articles):
     # method is called once at the beginning
     # all (80) articles are provided (i.e. the ID and features)
-    global nof_user_features, nof_articles, article_features, M, b
+    global nof_user_features, nof_articles, article_features, M, b, w, Q
 
     # initialization or article features, M and b
     article_features = articles
-    nof_articles = len(article_features)
+    #nof_articles = len(article_features)
     for a in articles:
         M[a] = np.identity(nof_user_features).reshape(6,6)
         b[a] = np.zeros(nof_user_features).reshape(6,1)
+        w[a] = np.zeros((6,1))
+        Q[a] = np.zeros((6,6))
 
 
 def update(reward):
@@ -48,11 +52,18 @@ def update(reward):
     #   0: article match, but user didn't click
     #   1: articles match, the user has clicked
     #print('update')
-    global M, b, last_recommendation, last_user_features
 
-    M_diff = np.multiply(last_user_features.reshape(6,1), last_user_features.reshape(6,1).T)
-    M[last_recommendation] = M[last_recommendation] + (M_diff)
-    b[last_recommendation] = b[last_recommendation] + (last_user_features*reward)
+    global M, b, w, Q, last_recommendation, last_user_features
+
+    if reward == -1:
+
+        M_diff = np.multiply(last_user_features.reshape(6,1), last_user_features.reshape(6,1).T)
+        M[last_recommendation] = M[last_recommendation] + (M_diff)
+        b[last_recommendation] = b[last_recommendation] + (last_user_features*reward)
+
+        Q[last_recommendation] = np.linalg.inv(M[last_recommendation]).reshape(6,6)
+        w[last_recommendation] = np.dot(Q[last_recommendation], b[last_recommendation]).reshape(6,1)
+        
     
     #print('Mdiff', np.shape(M_diff), M_diff)
 
@@ -67,30 +78,31 @@ def recommend(time, user_features, choices):
     # update method will be called with the result (i.e. click / no click)
 
     #print ('recommend')
-    global M, last_recommendation, last_user_features
+    global M, b, w, Q, last_recommendation, last_user_features
+    
     last_user_features = np.array(user_features).reshape(6,1)
     max_ucb = 0
 
     #print('M',np.shape(M))
     #print('b',np.shape(b))
-    #print('last_user_features', np.shape(last_user_features))
+    #print('last_user_features', np.shape(last_user_features), last_user_features)
 
 
     #for all x actoins in action set A_t (choices)
     for x in choices:
-        w = np.dot(np.linalg.inv(M[x]), b[x]).reshape(6,1)
-        #print('w', np.shape(w))
-        proj1 = np.dot(last_user_features.T, np.linalg.inv(M[x])).reshape(1,6)
+        
+        
+        proj1 = np.dot(last_user_features.T, Q[x]).reshape(1,6)
         #print('pro1', np.shape(proj1))
         proj = np.dot(proj1, last_user_features)
         #print('proj', np.shape(proj))
 
-        ucb = np.dot(w.T, last_user_features) + (C_ALPHA * np.sqrt(proj))
-
-        #print(np.shape(ucb))
+        ucb = np.dot(w[x].T, last_user_features) + (C_ALPHA * np.sqrt(proj))
+        #print('w', np.shape(w[x]),w[x])
+        #print(np.shape(ucb),ucb)
         #ucb_norm = np.linalg.norm(ucb)
         
-        if (max_ucb < ucb):
+        if (max_ucb <= ucb):
             max_ucb = ucb
             last_recommendation = x
 
