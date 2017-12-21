@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 """
 structure of logs (100'000):
@@ -17,6 +18,7 @@ structure of articles (80):
 0.336694544019 0.403501479737 0.404825199717 0.129586091883 0.0890207306141 0.540844109036
 """
 
+iteration = 0
 nof_user_features = 6
 nof_articles = None
 article_features = None
@@ -26,8 +28,11 @@ M = {}
 b = {}
 w = {}
 Q = {}
+success = {}
 
-C_ALPHA = 100 #100 works
+C_ALPHA = 0.05 #100 works
+
+start = time.time()
 
 def set_articles(articles):
     # method is called once at the beginning
@@ -41,7 +46,7 @@ def set_articles(articles):
         M[a] = np.identity(nof_user_features).reshape(6,6)
         b[a] = np.zeros(nof_user_features).reshape(6,1)
         w[a] = np.zeros((6,1))
-        Q[a] = np.zeros((6,6))
+        Q[a] = M[a]
 
 
 def update(reward):
@@ -49,13 +54,14 @@ def update(reward):
     # update the policy if necessary
     # reward:
     #  -1: recommended and displayed article didn't match
-    #   0: article match, but user didn't click
-    #   1: articles match, the user has clicked
-    #print('update')
+    #   0: recommended article has been displayed, but user didn't click
+    #   1: recommended article has been displayed, the user has clicked
 
-    global M, b, w, Q, last_recommendation, last_user_features
+    global M, b, w, Q, last_recommendation, last_user_features, success, start, iteration
 
-    if reward == -1:
+    #print('   ==> ' + str(reward))
+    
+    if (0 <= reward):
 
         M_diff = np.multiply(last_user_features.reshape(6,1), last_user_features.reshape(6,1).T)
         M[last_recommendation] = M[last_recommendation] + (M_diff)
@@ -65,6 +71,14 @@ def update(reward):
         w[last_recommendation] = np.dot(Q[last_recommendation], b[last_recommendation]).reshape(6,1)
         
     
+    #if (0 <= reward):
+    #    success[str(last_user_features)] = last_recommendation
+
+    #iteration += 1
+    #if (100000 == iteration):
+    #    t = time.time()
+    #    print(str(round((t - start) / 60.,2)) + ': completed')
+
     #print('Mdiff', np.shape(M_diff), M_diff)
 
     #print('M', last_recommendation, np.shape(M[last_recommendation]), M[last_recommendation])
@@ -78,10 +92,15 @@ def recommend(time, user_features, choices):
     # update method will be called with the result (i.e. click / no click)
 
     #print ('recommend')
-    global M, b, w, Q, last_recommendation, last_user_features
+    global M, b, w, Q, last_recommendation, last_user_features, success
     
     last_user_features = np.array(user_features).reshape(6,1)
-    max_ucb = 0
+    max_ucb = -1
+
+    #luf = str(last_user_features)
+    #if ((luf in success.keys()) and (success[luf] in choices)):
+    #    print('reuse: ' + str(success[luf])),
+    #    return success[luf]
 
     #print('M',np.shape(M))
     #print('b',np.shape(b))
@@ -89,8 +108,7 @@ def recommend(time, user_features, choices):
 
 
     #for all x actoins in action set A_t (choices)
-    for x in choices:
-        
+    for x in choices:        
         
         proj1 = np.dot(last_user_features.T, Q[x]).reshape(1,6)
         #print('pro1', np.shape(proj1))
@@ -102,12 +120,12 @@ def recommend(time, user_features, choices):
         #print(np.shape(ucb),ucb)
         #ucb_norm = np.linalg.norm(ucb)
         
-        if (max_ucb <= ucb):
-            max_ucb = ucb
+        if (max_ucb < ucb[0][0]):
+            max_ucb = ucb[0][0]
             last_recommendation = x
 
             #print('yes')
 
-    print('recom: ' + str(last_recommendation))
+    #print('recom: ' + str(last_recommendation) + '  for ucb: ' + str(max_ucb)),
 
     return last_recommendation
