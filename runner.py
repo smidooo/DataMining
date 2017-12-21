@@ -29,6 +29,7 @@ import numpy as np
 import resource
 import signal
 import sys
+import time
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
@@ -88,6 +89,7 @@ def run(source, log_file, articles_file):
     
 
 if __name__ == "__main__":
+    start = time.time()
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -103,3 +105,6 @@ if __name__ == "__main__":
     with open(args.source_file, "r") as fin:
         source = fin.read()
     run(source, args.log_file, args.articles_file)
+
+    t = time.time()
+    print('completed after ' + str(round((t - start) / 60.,2)) + ' minutes.')
